@@ -17,7 +17,7 @@ SYSTMP="$(dirname $(mktemp -u))" && export SYSTMP="${SYSTMP}"
 TMPDIR="$(mktemp -d)" && export TMPDIR="${TMPDIR}" ; echo -e "\n[+] Using TEMP: ${TMPDIR}\n"
 export CLEAN_RELEASES
 ##Repos
- gh repo list "pkgforge-community" --limit 10000 --json "name,isFork,description,url" -q '.[] | select(.isFork == true and (.description // "" | test("AUTOSYNCED"; "i"))) | .url' | sort -u -o "${TMPDIR}/FORKS.txt"
+ gh repo list "pkgforge-community" --limit 10000 --json "name,isFork,description,url" -q '.[] | select(.isFork == true and (.description // "" | test("AUTOSYNCED"; "i"))) | .url' | sort -u | shuf -o "${TMPDIR}/FORKS.txt"
  if [[ ! -s "${TMPDIR}/FORKS.txt" || $(wc -l < "${TMPDIR}/FORKS.txt") -le 10 ]]; then
    echo -e "\n[✗] FATAL: Not Enough Repos... (Something went Wrong..?)\n"
   exit 1
@@ -41,17 +41,30 @@ pushd "${TMPDIR}" >/dev/null 2>&1
    fi
   #Get Source Repo
    SRC_REPO="$(gh repo view "${FORKED_REPO}" --json parent -q '.parent | "https://github.com/" + .owner.login + "/" + .name' | tr -d '[:space:]')"
-   TMPSUFFIX="$(date --utc '+%H%M%S.%3N')"
+   TMPSUFFIX="$(< '/dev/urandom' tr -dc 'a-zA-Z0-9' | head -c 12)"
    rm -rvf "${TMPDIR}/TAGS-${TMPSUFFIX}.txt" 2>/dev/null
    gh release list --repo "${SRC_REPO}" --limit 5 --json 'tagName' -q '.[].tagName' | sort -u -o "${TMPDIR}/TAGS-${TMPSUFFIX}.txt"
-   if [[ -s "${TMPDIR}/TAGS-${TMPSUFFIX}.txt" && $(wc -l < "${TMPDIR}/TAGS-${TMPSUFFIX}.txt") -gt 1 ]]; then
+   if [[ -s "${TMPDIR}/TAGS-${TMPSUFFIX}.txt" && $(wc -l < "${TMPDIR}/TAGS-${TMPSUFFIX}.txt") -gt 0 ]]; then
      readarray -t "SRC_TAGS" < "${TMPDIR}/TAGS-${TMPSUFFIX}.txt"
        for SRC_TAG in "${SRC_TAGS[@]}"; do
         unset SRC_JSON SRC_RELEASE_NAME SRC_RELEASE_BODY SRC_TAG_SNAP
         if gh release list --repo "${FORKED_REPO}" --json 'tagName' -q ".[].tagName" | grep -q "${SRC_TAG}"; then
-         echo -e "[+] Skipping ${SRC_TAG} --> ${FORKED_REPO} (Already Exists)"
+         unset LAST_UPDATE LAST_UPDATE_DAY SKIP_UPDATE
+         LAST_UPDATE="$(gh release view "${SRC_TAG}" --repo "${SRC_REPO}" --json 'createdAt' -q '.createdAt')" ; export LAST_UPDATE
+         LAST_UPDATE_DIFF="$(($(date +%s) - $(date --date="${LAST_UPDATE}" +%s)))" ; export LAST_UPDATE_DIFF
+         LAST_UPDATE_DAY="$(echo $((${LAST_UPDATE_DIFF} / 86400)))" ; export LAST_UPDATE_DAY
+         if [ "${LAST_UPDATE_DIFF}" -le 21600 ]; then
+           echo "[+] ReUploading ${SRC_TAG} --> ${FORKED_REPO} (Already Exists & But Recently Updated) [Last: "${LAST_UPDATE}"]"
+           export SKIP_UPDATE="NO"
+         else
+           echo "[+] Skipping ${SRC_TAG} --> ${FORKED_REPO} (Already Exists & NOT Recently Updated) [Last: "${LAST_UPDATE}"]"
+           export SKIP_UPDATE="YES"
+         fi
         else
+         export SKIP_UPDATE="NO"
+        fi
         #Fetch Release Info
+        if [ "${SKIP_UPDATE}" != "YES" ]; then
          SRC_JSON="$(gh release view "${SRC_TAG}" --repo "${SRC_REPO}" --json 'tagName,body,name')"
          if [ -z "${SRC_JSON}" ]; then
            echo -e "[+] Skipping ${SRC_TAG} <-- ${SRC_REPO}"
