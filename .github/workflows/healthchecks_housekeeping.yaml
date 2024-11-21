@@ -110,6 +110,8 @@ jobs:
           pushd "$(mktemp -d)" >/dev/null 2>&1
            curl -qfsSL "https://raw.githubusercontent.com/pkgforge-community/repo-data/refs/heads/main/scripts/sync_repo_releases.sh" -o "./sync_repo_releases.sh"
            dos2unix --quiet "./sync_repo_releases.sh" ; chmod +x "./sync_repo_releases.sh"
+           ##In case, if there's ever a need to delete all Existing Releases from All Forked Repos
+           # export CLEAN_RELEASES="1"
            bash "./sync_repo_releases.sh"
           popd >/dev/null 2>&1
         continue-on-error: true
