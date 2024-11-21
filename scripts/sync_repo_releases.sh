@@ -41,10 +41,11 @@ pushd "${TMPDIR}" >/dev/null 2>&1
    fi
   #Get Source Repo
    SRC_REPO="$(gh repo view "${FORKED_REPO}" --json parent -q '.parent | "https://github.com/" + .owner.login + "/" + .name' | tr -d '[:space:]')"
-   rm -rvf "${TMPDIR}/TAGS.txt" 2>/dev/null
-   gh release list --repo "${SRC_REPO}" --limit 5 --json 'tagName' -q '.[].tagName' | sort -u -o "${TMPDIR}/TAGS.txt"
-   if [[ -s "${TMPDIR}/TAGS.txt" && $(wc -l < "${TMPDIR}/TAGS.txt") -gt 1 ]]; then
-     readarray -t "SRC_TAGS" < "${TMPDIR}/TAGS.txt"
+   TMPSUFFIX="$(date --utc '+%H%M%S.%3N')"
+   rm -rvf "${TMPDIR}/TAGS-${TMPSUFFIX}.txt" 2>/dev/null
+   gh release list --repo "${SRC_REPO}" --limit 5 --json 'tagName' -q '.[].tagName' | sort -u -o "${TMPDIR}/TAGS-${TMPSUFFIX}.txt"
+   if [[ -s "${TMPDIR}/TAGS-${TMPSUFFIX}.txt" && $(wc -l < "${TMPDIR}/TAGS-${TMPSUFFIX}.txt") -gt 1 ]]; then
+     readarray -t "SRC_TAGS" < "${TMPDIR}/TAGS-${TMPSUFFIX}.txt"
        for SRC_TAG in "${SRC_TAGS[@]}"; do
         unset SRC_JSON SRC_RELEASE_NAME SRC_RELEASE_BODY SRC_TAG_SNAP
         if gh release list --repo "${FORKED_REPO}" --json 'tagName' -q ".[].tagName" | grep -q "${SRC_TAG}"; then
@@ -69,10 +70,10 @@ pushd "${TMPDIR}" >/dev/null 2>&1
           #Upload to created Release 
            if gh release list --repo "${FORKED_REPO}" --json 'tagName' -q ".[].tagName" | grep -q "${SRC_TAG_SNAP}"; then
             #Upload Release
-             rm -rvf "${TMPDIR}/ASSETS.txt" 2>/dev/null
-             gh release view "${SRC_TAG}" --repo "${SRC_REPO}" --json 'assets' --jq '.assets[].url' | sort -u -o "${TMPDIR}/ASSETS.txt"
-             readarray -t "SRC_ASSETS" < "${TMPDIR}/ASSETS.txt"
-             OUTDIR="${TMPDIR}/$(date --utc "+%H%M%S.%3N")" ; export OUTDIR
+             rm -rvf "${TMPDIR}/ASSETS-${TMPSUFFIX}.txt" 2>/dev/null
+             gh release view "${SRC_TAG}" --repo "${SRC_REPO}" --json 'assets' --jq '.assets[].url' | sort -u -o "${TMPDIR}/ASSETS-${TMPSUFFIX}.txt"
+             readarray -t "SRC_ASSETS" < "${TMPDIR}/ASSETS-${TMPSUFFIX}.txt"
+             OUTDIR="${TMPDIR}/$(date --utc '+%H%M%S.%3N')" ; export OUTDIR
              mkdir -pv "${OUTDIR}" ; pushd "${OUTDIR}" >/dev/null 2>&1
               #Download
                printf "%s\n" "${SRC_ASSETS[@]}" | xargs -P "$(($(nproc)+1))" -I '{}' curl -qfSLO '{}' ; ls -lah "${OUTDIR}"
