@@ -41,7 +41,8 @@ pushd "${TMPDIR}" >/dev/null 2>&1
    fi
   #Get Source Repo
    SRC_REPO="$(gh repo view "${FORKED_REPO}" --json parent -q '.parent | "https://github.com/" + .owner.login + "/" + .name' | tr -d '[:space:]')"
-   TMPSUFFIX="$(cat '/dev/urandom' | tr -dc 'a-zA-Z0-9' | head -c 12)"
+   #TMPSUFFIX="$(cat '/dev/urandom' | tr -dc 'a-zA-Z0-9' | head -c 12)"
+   TMPSUFFIX="$(basename $(mktemp -u))"
    rm -rvf "${TMPDIR}/TAGS-${TMPSUFFIX}.txt" 2>/dev/null
    gh release list --repo "${SRC_REPO}" --limit 5 --json 'tagName' -q '.[].tagName' | sort -u -o "${TMPDIR}/TAGS-${TMPSUFFIX}.txt"
    if [[ -s "${TMPDIR}/TAGS-${TMPSUFFIX}.txt" && $(wc -l < "${TMPDIR}/TAGS-${TMPSUFFIX}.txt") -gt 0 ]]; then
