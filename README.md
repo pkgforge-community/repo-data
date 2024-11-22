@@ -1,3 +1,3 @@
 - #### About:
 Contains Automation Scripts & Helper Utilities to:
-> - Sync (Fetch & ReUpload) Releases for [All Forked Repos](https://github.com/orgs/pkgforge-community/repositories?q=fork%3Atrue+archived%3Afalse) from their Upstreams: [./scripts/sync_repo_releases.sh](https://github.com/pkgforge-community/repo-data/blob/main/scripts/sync_repo_releases.sh)
+> - Sync (Fetch & ReUpload) Releases for [All Forked Repos](https://github.com/orgs/pkgforge-community/repositories?q=fork%3Atrue+archived%3Afalse) from their Upstreams: [./scripts/sync_repo_releases.sh](https://github.com/pkgforge-community/repo-data/blob/main/scripts/sync_repo_releases.sh) [![♻️🐧🧹 HealthChecks Sync & Cleanup 🖳🗑️♻](https://github.com/pkgforge-community/repo-data/actions/workflows/healthchecks_housekeeping.yaml/badge.svg)](https://github.com/pkgforge-community/repo-data/actions/workflows/healthchecks_housekeeping.yaml)
