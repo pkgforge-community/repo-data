@@ -17,7 +17,7 @@ SYSTMP="$(dirname $(mktemp -u))" && export SYSTMP="${SYSTMP}"
 TMPDIR="$(mktemp -d)" && export TMPDIR="${TMPDIR}" ; echo -e "\n[+] Using TEMP: ${TMPDIR}\n"
 export CLEAN_RELEASES
 ##Repos
- gh repo list "pkgforge-community" --limit 10000 --json "name,isFork,description,url" -q '.[] | select(.isFork == true and (.description // "" | test("AUTOSYNCED"; "i"))) | .url' | sort -u | shuf -o "${TMPDIR}/FORKS.txt"
+ gh repo list "pkgforge-community" --limit 10000 --json "name,isFork,description,url,isArchived" -q '.[] | select(.isFork == true and .isArchived != true and (.description // "" | test("AUTOSYNCED"; "i"))) | .url' | sort -u | shuf -o "${TMPDIR}/FORKS.txt"
  if [[ ! -s "${TMPDIR}/FORKS.txt" || $(wc -l < "${TMPDIR}/FORKS.txt") -le 10 ]]; then
    echo -e "\n[✗] FATAL: Not Enough Repos... (Something went Wrong..?)\n"
   exit 1
