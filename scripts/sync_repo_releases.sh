@@ -16,7 +16,7 @@
 #ENV:VARS
 if [ -z "${GITHUB_TOKEN}" ] || \
    [ -z "${SYSTMP}" ] || \
-   [ -z "${TMPDIRS}" ]; then
+   [ -z "${TMPDIR}" ]; then
  #exit
   echo -e "\n[+]Required ENV:VARS are NOT Set...\n"
   return 1 || exit 1
