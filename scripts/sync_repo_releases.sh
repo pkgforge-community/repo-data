@@ -19,13 +19,13 @@ if [ -z "${GITHUB_TOKEN}" ] || \
    [ -z "${TMPDIRS}" ]; then
  #exit
   echo -e "\n[+]Required ENV:VARS are NOT Set...\n"
-  exit 1
+  return 1 || exit 1
 fi
 #-------------------------------------------------------#
 
 #-------------------------------------------------------#
 ##Sync
- sync_repo()
+ sync_repo_releases()
  {
   #Arg
   FORKED_REPO="${1:-$(echo "$@" | tr -d '[:space:]')}" ; export FORKED_REPO
@@ -100,5 +100,10 @@ fi
      echo -e "[+] Skipping ${SRC_REPO} (No Release Tag)..."
    fi
  }
-export -f sync_repo
+export -f sync_repo_releases
+alias sync-repo-releases="sync_repo_releases"
+#Call func directly if not being sourced
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+   sync_repo_releases "$@" <&0
+fi
 #-------------------------------------------------------#
