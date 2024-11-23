@@ -23,9 +23,9 @@ export CLEAN_RELEASES
   return 1 || exit 1
  fi
 ##Funcs
- source <(curl -qfsSL "https://raw.githubusercontent.com/pkgforge-community/repo-data/refs/heads/main/scripts/updater.sh")
- if ! declare -F updater &>/dev/null && ! declare -F sync-repo-releases &>/dev/null; then
-   echo -e "\n[✗] FATAL: updater could NOT BE Found\n"
+ source <(curl -qfsSL "https://raw.githubusercontent.com/pkgforge-community/repo-data/refs/heads/main/scripts/sync_repo_releases.sh")
+ if ! declare -F sync_repo_releases &>/dev/null && ! declare -F sync-repo-releases &>/dev/null; then
+   echo -e "\n[✗] FATAL: sync_repo_releases could NOT BE Found\n"
   return 1 || exit 1
  fi
 #-------------------------------------------------------#
@@ -38,7 +38,7 @@ pushd "${TMPDIR}" >/dev/null 2>&1
  #Enable Issues
  printf "%s\n" "${FORKS[@]}" | sed 's|https://github.com/||' | xargs -P "$(($(nproc)+1))" -I "{}" gh api "/repos/{}" -X "PATCH" --field "has_issues=true" >/dev/null
  #Sync Releases
- printf "%s\n" "${FORKS[@]}" | xargs -P "$(($(nproc)+1))" -I "{}" bash -c 'sync_repo "{}"'
+ printf "%s\n" "${FORKS[@]}" | xargs -P "$(($(nproc)+1))" -I "{}" bash -c 'sync_repo_releases "{}"'
 #Exit
 popd >/dev/null 2>&1
 #-------------------------------------------------------#
