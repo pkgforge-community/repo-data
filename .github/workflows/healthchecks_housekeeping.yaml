@@ -4,7 +4,7 @@ on:
   #push:
   workflow_dispatch:
   schedule:
-    - cron: "*/120 * * * *"  # Every 120 Mins
+    - cron: "0 */4 * * *"  # Every 04 Hrs
 env:
   RCLONE_CF_R2_PUB: "${{ secrets.RCLONE_CF_R2_PUB }}"
 #------------------------------------------------------------------------------------#
@@ -100,7 +100,7 @@ jobs:
           echo '```' >> "${GITHUB_WORKSPACE}/main/.github/SIZE.md"
         continue-on-error: true
 
-      - name: Sync Forked Repos
+      - name: Sync|Update Forked Repos
         env:
           GITHUB_TOKEN: "${{ secrets.GIT_ADMIN }}"
         run: |
@@ -108,11 +108,11 @@ jobs:
           set +x ; set +e
           #--------------#
           pushd "$(mktemp -d)" >/dev/null 2>&1
-           curl -qfsSL "https://raw.githubusercontent.com/pkgforge-community/repo-data/refs/heads/main/scripts/sync_repo_releases.sh" -o "./sync_repo_releases.sh"
-           dos2unix --quiet "./sync_repo_releases.sh" ; chmod +x "./sync_repo_releases.sh"
+           curl -qfsSL "https://raw.githubusercontent.com/pkgforge-community/repo-data/refs/heads/main/scripts/updater.sh" -o "./updater.sh"
+           dos2unix --quiet "./updater.sh" ; chmod +x "./updater.sh"
            ##In case, if there's ever a need to delete all Existing Releases from All Forked Repos
            # export CLEAN_RELEASES="1"
-           bash "./sync_repo_releases.sh"
+           bash "./updater.sh"
           popd >/dev/null 2>&1
         continue-on-error: true
 
