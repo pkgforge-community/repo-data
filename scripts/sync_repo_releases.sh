@@ -4,31 +4,27 @@
 ## Requires: https://github.com/Azathothas/Arsenal/blob/main/misc/Linux/install_dev_tools.sh
 # bash <(curl -qfsSL "https://pub.ajam.dev/repos/Azathothas/Arsenal/misc/Linux/install_dev_tools.sh")
 ## Self: https://raw.githubusercontent.com/pkgforge-community/repo-data/refs/heads/main/scripts/sync_repo_releases.sh
-# bash <(curl -qfsSL "https://raw.githubusercontent.com/pkgforge-community/repo-data/refs/heads/main/scripts/sync_repo_releases.sh")
+# source <(curl -qfsSL "https://raw.githubusercontent.com/pkgforge-community/repo-data/refs/heads/main/scripts/sync_repo_releases.sh")
+# sync_repo_releases "${REPO}"
 ## OPTS:
 # CLEAN_RELEASES=1|ON sync_repo_releases --> Deletes pre-existing Releases
 #-------------------------------------------------------#
 
 
 #-------------------------------------------------------#
-##ENV
-export TZ="UTC"
-SYSTMP="$(dirname $(mktemp -u))" && export SYSTMP="${SYSTMP}"
-TMPDIR="$(mktemp -d)" && export TMPDIR="${TMPDIR}" ; echo -e "\n[+] Using TEMP: ${TMPDIR}\n"
-export CLEAN_RELEASES
-##Repos
- gh repo list "pkgforge-community" --limit 10000 --json "name,isFork,description,url,isArchived" -q '.[] | select(.isFork == true and .isArchived != true and (.description // "" | test("AUTOSYNCED"; "i"))) | .url' | sort -u | shuf -o "${TMPDIR}/FORKS.txt"
- if [[ ! -s "${TMPDIR}/FORKS.txt" || $(wc -l < "${TMPDIR}/FORKS.txt") -le 10 ]]; then
-   echo -e "\n[✗] FATAL: Not Enough Repos... (Something went Wrong..?)\n"
+##Sanity Checks
+#ENV:VARS
+if [ -z "${GITHUB_TOKEN}" ] || \
+   [ -z "${SYSTMP}" ] || \
+   [ -z "${TMPDIRS}" ]; then
+ #exit
+  echo -e "\n[+]Required ENV:VARS are NOT Set...\n"
   exit 1
- fi
+fi
 #-------------------------------------------------------#
-
 
 #-------------------------------------------------------#
 ##Sync
-pushd "${TMPDIR}" >/dev/null 2>&1
- readarray -t "FORKS" < "${TMPDIR}/FORKS.txt"
  sync_repo()
  {
   #Arg
@@ -105,7 +101,4 @@ pushd "${TMPDIR}" >/dev/null 2>&1
    fi
  }
 export -f sync_repo
-printf "%s\n" "${FORKS[@]}" | xargs -P "$(($(nproc)+1))" -I "{}" bash -c 'sync_repo "{}"'
-#Exit
-popd >/dev/null 2>&1
 #-------------------------------------------------------#
