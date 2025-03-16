@@ -170,6 +170,7 @@ jobs:
                #Sync Repo
                 echo "${LATEST_COMMIT}" | tr -d '[:space:]' > "${GITHUB_WORKSPACE}/main/.github/LATEST_COMMIT.txt"
                 echo "${LATEST_COMMIT_M}" > "${GITHUB_WORKSPACE}/main/.github/LATEST_COMMIT_M.txt"
+                git --git-dir="${WORK_DIR}/TEMPREPO/.git" for-each-ref --format '%(refname:short)' "refs/tags" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g' | tail -n 1 > "${GITHUB_WORKSPACE}/main/.github/LATEST_VERSION.txt"
                 git --git-dir="${WORK_DIR}/TEMPREPO/.git" for-each-ref --format '%(refname:short)==>%(objectname)' "refs/tags" | tee "${GITHUB_WORKSPACE}/main/.github/TAGS.txt"
                 sed '/^$/d' -i "${GITHUB_WORKSPACE}/main/.github/LATEST_COMMIT.txt"
                 rm -rfv "${WORK_DIR}/TEMPREPO/.git/" "./.githooks/" "./.github/" 2>/dev/null
