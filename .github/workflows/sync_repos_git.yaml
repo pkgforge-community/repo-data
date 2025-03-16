@@ -145,6 +145,6 @@ jobs:
         with:
           repository: ./main
           #commit_message: "‎‎‏‏‎ ‎"
-          commit_message: "${{ env.LAST_COMMIT_M }}"
+          commit_message: "${{ env.LATEST_COMMI_M }}"
           #push_options: '--force'
         continue-on-error: true
