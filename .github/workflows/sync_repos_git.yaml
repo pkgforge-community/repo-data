@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 15
     steps:
 
-      - name: Checking [${{ inputs.upstream-git-repo }}<==>${{ github.GITHUB_REPOSITORY }}]
+      - name: Checking [${{ inputs.upstream-git-repo }}<==>${{ github.repository }}]
         env:
           GH_TOKEN: "${{ github.token }}"
           GITHUB_TOKEN: "${{ github.token }}"
@@ -85,7 +85,7 @@ jobs:
           echo "USER_AGENT=${USER_AGENT}" >> "${GITHUB_ENV}"
         continue-on-error: true
 
-      - name: Syncing "${{ github.GITHUB_REPOSITORY }}" <-- "(${{ env.UPSTREAM_REPO }})"
+      - name: Syncing "${{ github.repository }}" <-- "(${{ env.UPSTREAM_REPO }})"
         if: env.CONTINUE_GHRUN != 'FALSE'
         run: |
           #Presets
