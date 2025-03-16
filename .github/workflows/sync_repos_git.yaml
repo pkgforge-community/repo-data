@@ -11,6 +11,11 @@ on:
         description: Upstream GIT URL (Must be able to git clone $URL)
         type: string
         required: true
+      git-checkout-tag:
+        description: Checkout a Specific Tag (Specify an exact tag or specify 'LATEST_STABLE') [Default==HEAD]
+        type: string
+        default: "HEAD"
+        required: false
       git-fetch-depth:
         description: Git clone depth (Use 0 for Complete History) [Default==1]
         type: number
@@ -20,7 +25,8 @@ on:
         description: Filter Blobs (Speeds Up Cloning) [Default==True]
         type: boolean
         default: true
-        
+        required: false
+ 
 jobs:
 #------------------------------------------------------------------------------------#
   sync:
@@ -51,6 +57,14 @@ jobs:
               echo -e "\n[✗] FATAL: \$GITHUB_REPOSITORY must NOT be a Fork\n"
               echo "CONTINUE_GHRUN=FALSE" >> "${GITHUB_ENV}"
              exit 1
+           fi
+          ##Checkout
+           CHECKOUT_TAG="$(echo "${{ inputs.git-checkout-tag }}" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
+           export CHECKOUT_TAG
+           if [[ -n "${CHECKOUT_TAG+x}" ]]; then
+             echo "CHECKOUT_TAG=${CHECKOUT_TAG}" >> "${GITHUB_ENV}"
+           else
+             echo "CHECKOUT_TAG=_NA_" >> "${GITHUB_ENV}"
            fi
           ##DEPTH
            FETCH_DEPTH="$(echo "${{ inputs.git-fetch-depth }}" | tr -cd '0-9')"
@@ -159,10 +173,17 @@ jobs:
             LATEST_COMMIT="$(git --git-dir="${WORK_DIR}/TEMPREPO/.git" rev-parse 'HEAD' | tr -d '[:space:]')"
             LATEST_COMMIT_M="$(git --git-dir="${WORK_DIR}/TEMPREPO/.git" --no-pager log -1 --pretty="%B" | sed -e '/^[[:space:]]*$/d;1q')"
             PREV_COMMIT="$(cat "${GITHUB_WORKSPACE}/main/.github/LATEST_COMMIT.txt" 2>/dev/null | tr -d '[:space:]')"
-            export LATEST_COMMIT LATEST_COMMIT_M PREV_COMMIT
+            LATEST_TAG="$(git --git-dir="${WORK_DIR}/TEMPREPO/.git" describe --tags "$(git rev-list --tags --max-count=1)" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
+            export LATEST_COMMIT LATEST_COMMIT_M LATEST_TAG PREV_COMMIT
             echo "LATEST_COMMI=${LATEST_COMMI}" >> "${GITHUB_ENV}"
             echo "LATEST_COMMIT_M=${LATEST_COMMIT_M}" >> "${GITHUB_ENV}"
             echo "PREV_COMMIT=${PREV_COMMIT}" >> "${GITHUB_ENV}"
+           #Checkout
+            if [[ "${CHECKOUT_TAG}" == "LATEST_STABLE" ]]; then
+              git --git-dir="${WORK_DIR}/TEMPREPO/.git" checkout "${LATEST_TAG}" || echo -e "\n[-] FATAL: Failed to Checkout ${CHECKOUT_TAG}\n$(exit 1)"
+            elif [[  -n "${CHECKOUT_TAG+x}" && "${CHECKOUT_TAG}" != "_NA_" && "${CHECKOUT_TAG}" != "HEAD" ]]; then
+              git --git-dir="${WORK_DIR}/TEMPREPO/.git" checkout "${CHECKOUT_TAG}" || echo -e "\n[-] FATAL: Failed to Checkout ${CHECKOUT_TAG}\n$(exit 1)"
+            fi
            #Sanity
            if [[ "$(echo "${LATEST_COMMIT}" | tr -d '[:space:]' | wc -c)" -eq 40 ]]; then
              git --git-dir="${WORK_DIR}/TEMPREPO/.git" --no-pager log -1 --pretty="%B"
@@ -170,8 +191,11 @@ jobs:
                #Sync Repo
                 echo "${LATEST_COMMIT}" | tr -d '[:space:]' > "${GITHUB_WORKSPACE}/main/.github/LATEST_COMMIT.txt"
                 echo "${LATEST_COMMIT_M}" > "${GITHUB_WORKSPACE}/main/.github/LATEST_COMMIT_M.txt"
-                git --git-dir="${WORK_DIR}/TEMPREPO/.git" for-each-ref --format '%(refname:short)' "refs/tags" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g' | tail -n 1 > "${GITHUB_WORKSPACE}/main/.github/LATEST_VERSION.txt"
-                git --git-dir="${WORK_DIR}/TEMPREPO/.git" for-each-ref --format '%(refname:short)==>%(objectname)' "refs/tags" | tee "${GITHUB_WORKSPACE}/main/.github/TAGS.txt"
+                echo "${LATEST_TAG}" > "${GITHUB_WORKSPACE}/main/.github/LATEST_TAG.txt"
+                git --git-dir="${WORK_DIR}/TEMPREPO/.git" for-each-ref --sort='-committerdate' --format '%(refname:short)==>(%(objectname))[%(committerdate:short)]' "refs/tags" |\
+                sed -E 's/^[[:space:]]+|[[:space:]]+$//g' | tee "${GITHUB_WORKSPACE}/main/.github/TAGS.txt"
+                git --git-dir="${WORK_DIR}/TEMPREPO/.git" for-each-ref --sort='-committerdate' --format '%(refname:short)' "refs/tags" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g' | head -n 1 > "${GITHUB_WORKSPACE}/main/.github/LATEST_VERSION.txt"
+                #echo "${LATEST_TAG}" > "${GITHUB_WORKSPACE}/main/.github/LATEST_VERSION.txt"
                 sed '/^$/d' -i "${GITHUB_WORKSPACE}/main/.github/LATEST_COMMIT.txt"
                 rm -rfv "${WORK_DIR}/TEMPREPO/.git/" "./.githooks/" "./.github/" 2>/dev/null
                 rsync -achLv --remove-source-files --exclude="./.git/**" --exclude="./.github/**" "./" "${GITHUB_WORKSPACE}/main/"
