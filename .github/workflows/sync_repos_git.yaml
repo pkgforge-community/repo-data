@@ -125,7 +125,7 @@ jobs:
            #Clone
             for i in {1..20}; do
               rm -rf "./TEMPREPO" 2>/dev/null
-              if [[ "${FILTER_BLOB,,}" != "true" ]]; then
+              if [[ "${FILTER_BLOB,,}" != "false" ]]; then
                 #git clone --bare --filter="blob:none" --depth="${FETCH_DEPTH:-0}" "${UPSTREAM_REPO}" "./TEMPREPO" &&\
                 #cd "./TEMPREPO" && git fetch --tags --prune && break
                 if [[ "${#FETCH_DEPTH}" -eq 0 ]]; then
@@ -136,7 +136,6 @@ jobs:
                    git clone --filter="blob:none" --depth="${FETCH_DEPTH}" --verbose "${UPSTREAM_REPO}" "./TEMPREPO" && break
                 fi
               else
-                git clone --depth="${FETCH_DEPTH}" --verbose "${UPSTREAM_REPO}" "./TEMPREPO" && break
                 if [[ "${#FETCH_DEPTH}" -eq 0 ]]; then
                    echo -e "\n Cloning... (Blob=true|Depth=all) [${i}/20]"
                    git clone --verbose "${UPSTREAM_REPO}" "./TEMPREPO" && break
