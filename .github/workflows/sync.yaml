@@ -1,0 +1,150 @@
+name: ♻️ Sync 🗃️
+
+
+permissions:
+  contents: write
+
+on:
+  workflow_call:
+    inputs:
+      upstream-git-repo:
+        description: Upstream GIT URL (Must be able to git clone $URL)
+        type: string
+        required: true
+
+jobs:
+#------------------------------------------------------------------------------------#
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+
+      - name: Checking [${{ inputs.upstream-git-repo }}<==>${{ env.GITHUB_REPOSITORY }}]
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          GITHUB_TOKEN: "${{ github.token }}"
+        run: |
+          ##presets
+          set +x ; set +e
+          #-------------#
+          ##GITHUB_REPOSITORY [Exists?]
+           if [[ -z "${GITHUB_REPOSITORY//[[:space:]]/}" ]]; then
+              echo -e "\n[✗] FATAL: Failed to Get \$GITHUB_REPOSITORY\n"
+              echo "CONTINUE_GHRUN=FALSE" >> "${GITHUB_ENV}"
+             exit 1
+           elif echo "${GITHUB_REPOSITORY}" | grep -qiE 'github.com'; then
+              GITHUB_REPOSITORY="$(echo "${GITHUB_REPOSITORY}" | sed -E 's|^(https://github.com/)?([^/]+/[^/]+).*|\2|' | tr -d '[:space:]')"
+              export GITHUB_REPOSITORY
+              echo "GITHUB_REPOSITORY=${GITHUB_REPOSITORY}" >> "${GITHUB_ENV}"
+           fi
+          ##GITHUB_REPOSITORY [Is a Fork?]
+           if [[ "$(gh repo view "${GITHUB_REPOSITORY}" --json isFork -q '.isFork' | tr -d '[:space:]')" == "true" ]]; then
+              echo -e "\n[✗] FATAL: \$GITHUB_REPOSITORY must NOT be a Fork\n"
+              echo "CONTINUE_GHRUN=FALSE" >> "${GITHUB_ENV}"
+             exit 1
+           fi
+          ##UPSTREAM_REPO
+           UPSTREAM_REPO="$(echo "${{ inputs.ghcr-url }}" | tr -d '[:space:]')"
+           export UPSTREAM_REPO
+           if [[ "${#UPSTREAM_REPO}" -gt 5 ]]; then
+             echo "UPSTREAM_REPO=${UPSTREAM_REPO}" >> "${GITHUB_ENV}"
+           else
+             echo -e "\n[✗] FATAL: ${UPSTREAM_REPO} is NOT a Valid Value\n"
+             echo "CONTINUE_GHRUN=FALSE" >> "${GITHUB_ENV}"
+            exit 1
+           fi
+        continue-on-error: false
+
+      - name: Cloning Current Repo
+        if: env.CONTINUE_GHRUN != 'FALSE'
+        uses: actions/checkout@v4
+        with:
+          path: main
+          fetch-depth: "1"
+          filter: "blob:none"
+
+      - name: Setting up ENV
+        if: env.CONTINUE_GHRUN != 'FALSE'
+        run: |
+          ##presets
+          set +x ; set +e
+          #-------------#
+          ##CoreUtils
+          sudo apt update -y -qq
+          sudo apt install bc coreutils curl dos2unix fdupes jq moreutils rsync util-linux wget -y -qq
+          sudo apt install bc coreutils curl dos2unix fdupes jq moreutils rsync util-linux wget -y -qq
+          #temp
+          SYSTMP="$(dirname $(mktemp -u))" && export SYSTMP="${SYSTMP}"
+          echo "SYSTMP=${SYSTMP}" >> "${GITHUB_ENV}"
+          echo "GH_PAGER=" >> "${GITHUB_ENV}"
+          echo "GIT_TERMINAL_PROMPT=0" >> "${GITHUB_ENV}"
+          echo "GIT_ASKPASS=/bin/echo" >> "${GITHUB_ENV}"
+          gh config set prompt disabled
+          ##User-Agent
+          USER_AGENT="$(curl -qfsSL 'https://raw.githubusercontent.com/pkgforge/devscripts/refs/heads/main/Misc/User-Agents/ua_firefox_macos_latest.txt')" && export USER_AGENT="${USER_AGENT}"
+          echo "USER_AGENT=${USER_AGENT}" >> "${GITHUB_ENV}"
+        continue-on-error: true
+
+      - name: Syncing "${{ env.GITHUB_REPOSITORY }}" <-- "(${{ env.UPSTREAM_REPO }})"
+        if: env.CONTINUE_GHRUN != 'FALSE'
+        run: |
+          #Presets
+          set +x ; set +e
+          #--------------#
+          ##Main
+          pushd "$(mktemp -d)" &>/dev/null
+           #Clone
+            for i in {1..20}; do
+              rm -rf "./TEMPREPO" 2>/dev/null
+              echo -e "\n Cloning... [${i}/20]" && git clone --depth="1" --filter="blob:none" --verbose "${UPSTREAM_REPO}" "./TEMPREPO" && break
+            done
+           #Restore 
+            for i in {1..200}; do
+              echo -e "\n Restoring... [${i}/200]" && git --git-dir="./TEMPREPO/.git" restore --source="HEAD" ":/" && break
+            done
+           #Tags
+            git --git-dir="./TEMPREPO/.git" fetch --tags
+           #Commits
+            LATEST_COMMIT="$(git --git-dir="./TEMPREPO/.git" rev-parse 'HEAD' | tr -d '[:space:]')"
+            LATEST_COMMI_M="$(git --git-dir="./TEMPREPO/.git" --no-pager log -1 --pretty="%B" | sed -e '/^[[:space:]]*$/d;1q')"
+            PREV_COMMIT="$(cat "${GITHUB_WORKSPACE}/main/.github/LATEST.txt" 2>/dev/null | tr -d '[:space:]')"
+            export LATEST_COMMIT LATEST_COMMI_M PREV_COMMIT
+            echo "LATEST_COMMI=${LATEST_COMMI}" >> "${GITHUB_ENV}"
+            echo "LATEST_COMMI_M=${LATEST_COMMI_M}" >> "${GITHUB_ENV}"
+            echo "PREV_COMMIT=${PREV_COMMIT}" >> "${GITHUB_ENV}"
+           #Sanity 
+           if [[ "$(echo "${LATEST_COMMIT}" | tr -d '[:space:]' | wc -c)" -eq 40 ]]; then
+             git --git-dir="./TEMPREPO/.git" --no-pager log -1 --pretty="%B"
+             if [ "${LATEST_COMMIT}" != "${PREV_COMMIT}" ]; then
+               #Sync Repo
+                echo "${LATEST_COMMIT}" > "${GITHUB_WORKSPACE}/main/.github/LATEST.txt"
+                sed '/^$/d' -i "${GITHUB_WORKSPACE}/main/.github/LATEST.txt"
+                rm -rfv "./TEMPREPO/.git/" "./.githooks/" "./.github/" 2>/dev/null
+                rsync -achLv --remove-source-files --exclude="./.git/**" --exclude="./.github/**" "./" "${GITHUB_WORKSPACE}/main/"
+             fi
+           else
+              echo -e "\n[✗] FATAL: ${UPSTREAM_REPO} was NOT Cloned Successfully\n"
+              echo "CONTINUE_GHRUN=FALSE" >> "${GITHUB_ENV}"
+             exit 1
+           fi
+          popd &>/dev/null
+        continue-on-error: true
+
+      - name: Get DateTime & Purge files (=> 95 MB)
+        if: env.CONTINUE_GHRUN != 'FALSE'
+        run: |
+          #Presets
+          set +x ; set +e
+          #--------------#
+          UTC_TIME="$(TZ='UTC' date +'%Y-%m-%d_%I_%M_%S_%p' | tr -d '[:space:]')"
+          echo "UTC_TIME=${UTC_TIME}" >> "${GITHUB_ENV}"
+        continue-on-error: true
+
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        if: env.CONTINUE_GHRUN != 'FALSE'
+        with:
+          repository: ./main
+          #commit_message: "‎‎‏‏‎ ‎"
+          commit_message: "${{ env.LAST_COMMIT_M }}"
+          #push_options: '--force'
+        continue-on-error: true
