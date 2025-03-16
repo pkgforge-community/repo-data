@@ -173,17 +173,22 @@ jobs:
             LATEST_COMMIT="$(git --git-dir="${WORK_DIR}/TEMPREPO/.git" rev-parse 'HEAD' | tr -d '[:space:]')"
             LATEST_COMMIT_M="$(git --git-dir="${WORK_DIR}/TEMPREPO/.git" --no-pager log -1 --pretty="%B" | sed -e '/^[[:space:]]*$/d;1q')"
             PREV_COMMIT="$(cat "${GITHUB_WORKSPACE}/main/.github/LATEST_COMMIT.txt" 2>/dev/null | tr -d '[:space:]')"
-            LATEST_TAG="$(git --git-dir="${WORK_DIR}/TEMPREPO/.git" describe --tags "$(git rev-list --tags --max-count=1)" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
+            LATEST_TAG="$(git --git-dir="${WORK_DIR}/TEMPREPO/.git" describe --tags "$(git --git-dir="${WORK_DIR}/TEMPREPO/.git" rev-list --tags --max-count=1)" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
             export LATEST_COMMIT LATEST_COMMIT_M LATEST_TAG PREV_COMMIT
-            echo "LATEST_COMMI=${LATEST_COMMI}" >> "${GITHUB_ENV}"
+            echo "LATEST_COMMIT=${LATEST_COMMIT}" >> "${GITHUB_ENV}"
             echo "LATEST_COMMIT_M=${LATEST_COMMIT_M}" >> "${GITHUB_ENV}"
             echo "PREV_COMMIT=${PREV_COMMIT}" >> "${GITHUB_ENV}"
+            echo -e "\n[+] Commit: ${LATEST_COMMIT} (${LATEST_COMMIT_M})"
+            echo -e "[+] Previous: ${PREV_COMMIT}"
+            echo -e "[+] Tag: ${LATEST_TAG}"
            #Checkout
-            if [[ "${CHECKOUT_TAG}" == "LATEST_STABLE" ]]; then
-              git --git-dir="${WORK_DIR}/TEMPREPO/.git" checkout "${LATEST_TAG}" || echo -e "\n[-] FATAL: Failed to Checkout ${CHECKOUT_TAG}\n$(exit 1)"
-            elif [[  -n "${CHECKOUT_TAG+x}" && "${CHECKOUT_TAG}" != "_NA_" && "${CHECKOUT_TAG}" != "HEAD" ]]; then
-              git --git-dir="${WORK_DIR}/TEMPREPO/.git" checkout "${CHECKOUT_TAG}" || echo -e "\n[-] FATAL: Failed to Checkout ${CHECKOUT_TAG}\n$(exit 1)"
-            fi
+            pushd "${WORK_DIR}/TEMPREPO" &>/dev/null
+              if [[ "${CHECKOUT_TAG}" == "LATEST_STABLE" ]]; then
+                git checkout "${LATEST_TAG}" || echo -e "\n[-] FATAL: Failed to Checkout ${CHECKOUT_TAG}\n$(exit 1)"
+              elif [[  -n "${CHECKOUT_TAG+x}" && "${CHECKOUT_TAG}" != "_NA_" && "${CHECKOUT_TAG}" != "HEAD" ]]; then
+                git checkout "${CHECKOUT_TAG}" || echo -e "\n[-] FATAL: Failed to Checkout ${CHECKOUT_TAG}\n$(exit 1)"
+              fi
+            pushd "${WORK_DIR}" &>/dev/null
            #Sanity
            if [[ "$(echo "${LATEST_COMMIT}" | tr -d '[:space:]' | wc -c)" -eq 40 ]]; then
              git --git-dir="${WORK_DIR}/TEMPREPO/.git" --no-pager log -1 --pretty="%B"
