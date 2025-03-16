@@ -44,7 +44,7 @@ jobs:
              exit 1
            fi
           ##UPSTREAM_REPO
-           UPSTREAM_REPO="$(echo "${{ inputs.ghcr-url }}" | tr -d '[:space:]')"
+           UPSTREAM_REPO="$(echo "${{ inputs.upstream-git-repo }}" | tr -d '[:space:]')"
            export UPSTREAM_REPO
            if [[ "${#UPSTREAM_REPO}" -gt 5 ]]; then
              echo "UPSTREAM_REPO=${UPSTREAM_REPO}" >> "${GITHUB_ENV}"
