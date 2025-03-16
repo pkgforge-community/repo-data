@@ -157,11 +157,11 @@ jobs:
            #Commits
             pushd "${WORK_DIR}" &>/dev/null
             LATEST_COMMIT="$(git --git-dir="${WORK_DIR}/TEMPREPO/.git" rev-parse 'HEAD' | tr -d '[:space:]')"
-            LATEST_COMMI_M="$(git --git-dir="${WORK_DIR}/TEMPREPO/.git" --no-pager log -1 --pretty="%B" | sed -e '/^[[:space:]]*$/d;1q')"
+            LATEST_COMMIT_M="$(git --git-dir="${WORK_DIR}/TEMPREPO/.git" --no-pager log -1 --pretty="%B" | sed -e '/^[[:space:]]*$/d;1q')"
             PREV_COMMIT="$(cat "${GITHUB_WORKSPACE}/main/.github/LATEST_COMMIT.txt" 2>/dev/null | tr -d '[:space:]')"
-            export LATEST_COMMIT LATEST_COMMI_M PREV_COMMIT
+            export LATEST_COMMIT LATEST_COMMIT_M PREV_COMMIT
             echo "LATEST_COMMI=${LATEST_COMMI}" >> "${GITHUB_ENV}"
-            echo "LATEST_COMMI_M=${LATEST_COMMI_M}" >> "${GITHUB_ENV}"
+            echo "LATEST_COMMIT_M=${LATEST_COMMIT_M}" >> "${GITHUB_ENV}"
             echo "PREV_COMMIT=${PREV_COMMIT}" >> "${GITHUB_ENV}"
            #Sanity
            if [[ "$(echo "${LATEST_COMMIT}" | tr -d '[:space:]' | wc -c)" -eq 40 ]]; then
@@ -202,7 +202,7 @@ jobs:
         with:
           repository: ./main
           #commit_message: "‎‎‏‏‎ ‎"
-          commit_message: "${{ env.LATEST_COMMI_M }}"
+          commit_message: "${{ env.LATEST_COMMIT_M }}"
           #push_options: '--force'
           #push_options: '--mirror'
         continue-on-error: true
