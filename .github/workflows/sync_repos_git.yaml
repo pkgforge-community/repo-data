@@ -203,6 +203,7 @@ jobs:
              git --git-dir="${WORK_DIR}/TEMPREPO/.git" --no-pager log -1 --pretty="%B"
              if [ "${LATEST_COMMIT}" != "${PREV_COMMIT}" ]; then
                #Sync Repo
+                pushd "${WORK_DIR}/TEMPREPO" &>/dev/null
                 echo "${LATEST_COMMIT}" | tr -d '[:space:]' > "${GITHUB_WORKSPACE}/main/.github/LATEST_COMMIT.txt"
                 echo "${LATEST_COMMIT_M}" > "${GITHUB_WORKSPACE}/main/.github/LATEST_COMMIT_M.txt"
                 echo "${LATEST_TAG}" > "${GITHUB_WORKSPACE}/main/.github/LATEST_TAG.txt"
