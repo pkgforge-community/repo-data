@@ -1,6 +1,5 @@
 name: ♻️ Sync 🗃️
 
-
 permissions:
   contents: write
 
@@ -180,13 +179,23 @@ jobs:
             echo "PREV_COMMIT=${PREV_COMMIT}" >> "${GITHUB_ENV}"
             echo -e "\n[+] Commit: ${LATEST_COMMIT} (${LATEST_COMMIT_M})"
             echo -e "[+] Previous: ${PREV_COMMIT}"
-            echo -e "[+] Tag: ${LATEST_TAG}"
+            echo -e "[+] Tag: ${LATEST_TAG}\n"
            #Checkout
             pushd "${WORK_DIR}/TEMPREPO" &>/dev/null
               if [[ "${CHECKOUT_TAG}" == "LATEST_STABLE" ]]; then
-                git checkout "${LATEST_TAG}" || echo -e "\n[-] FATAL: Failed to Checkout ${CHECKOUT_TAG}\n$(exit 1)"
+                 git checkout "${LATEST_TAG}" || \
+                 {
+                    echo -e "\n[-] FATAL: Failed to Checkout ${CHECKOUT_TAG}\n"
+                    echo "CONTINUE_GHRUN=FALSE" >> "${GITHUB_ENV}"
+                   exit 1
+                 }
               elif [[  -n "${CHECKOUT_TAG+x}" && "${CHECKOUT_TAG}" != "_NA_" && "${CHECKOUT_TAG}" != "HEAD" ]]; then
-                git checkout "${CHECKOUT_TAG}" || echo -e "\n[-] FATAL: Failed to Checkout ${CHECKOUT_TAG}\n$(exit 1)"
+                 git checkout "${CHECKOUT_TAG}" || \
+                 {
+                    echo -e "\n[-] FATAL: Failed to Checkout ${CHECKOUT_TAG}\n"
+                    echo "CONTINUE_GHRUN=FALSE" >> "${GITHUB_ENV}"
+                   exit 1
+                 }
               fi
             pushd "${WORK_DIR}" &>/dev/null
            #Sanity
