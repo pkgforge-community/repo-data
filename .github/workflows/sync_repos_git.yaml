@@ -11,7 +11,16 @@ on:
         description: Upstream GIT URL (Must be able to git clone $URL)
         type: string
         required: true
-
+      git-fetch-depth:
+        description: Git clone depth (Use 0 for Complete History) [Default==1]
+        type: number
+        default: 1
+        required: false
+      git-filter-blob:
+        description: Filter Blobs (Speeds Up Cloning) [Default==True]
+        type: boolean
+        default: true
+        
 jobs:
 #------------------------------------------------------------------------------------#
   sync:
@@ -42,6 +51,26 @@ jobs:
               echo -e "\n[✗] FATAL: \$GITHUB_REPOSITORY must NOT be a Fork\n"
               echo "CONTINUE_GHRUN=FALSE" >> "${GITHUB_ENV}"
              exit 1
+           fi
+          ##DEPTH
+           FETCH_DEPTH="$(echo "${{ inputs.git-fetch-depth }}" | tr -cd '0-9')"
+           export FETCH_DEPTH
+           if [[ "${#FETCH_DEPTH}" -eq 0 ]]; then 
+             echo "FETCH_DEPTH=0" >> "${GITHUB_ENV}"
+           elif [[ "${#FETCH_DEPTH}" -ge 1 ]]; then
+             echo "FETCH_DEPTH=${FETCH_DEPTH}" >> "${GITHUB_ENV}"
+           else
+             echo -e "\n[✗] FATAL: ${FETCH_DEPTH} is NOT a Valid Value\n"
+             echo "CONTINUE_GHRUN=FALSE" >> "${GITHUB_ENV}"
+            exit 1
+           fi
+          ##Filter Blob
+           FILTER_BLOB="$(echo "${{ inputs.git-filter-blob }}" | tr -d '[:space:]')"
+           export FILTER_BLOB
+           if [[ "${FILTER_BLOB,,}" == "true" ]]; then
+             echo "FILTER_BLOB=true" >> "${GITHUB_ENV}"
+           elif [[ "${FILTER_BLOB,,}" == "false" ]]; then
+             echo "FILTER_BLOB=false" >> "${GITHUB_ENV}"
            fi
           ##UPSTREAM_REPO
            UPSTREAM_REPO="$(echo "${{ inputs.upstream-git-repo }}" | tr -d '[:space:]')"
@@ -92,36 +121,64 @@ jobs:
           set +x ; set +e
           #--------------#
           ##Main
-          pushd "$(mktemp -d)" &>/dev/null
+          WORK_DIR="$(mktemp -d)" && pushd "${WORK_DIR}" &>/dev/null
            #Clone
             for i in {1..20}; do
               rm -rf "./TEMPREPO" 2>/dev/null
-              echo -e "\n Cloning... [${i}/20]" && git clone --depth="1" --filter="blob:none" --verbose "${UPSTREAM_REPO}" "./TEMPREPO" && break
+              if [[ "${FILTER_BLOB,,}" != "true" ]]; then
+                #git clone --bare --filter="blob:none" --depth="${FETCH_DEPTH:-0}" "${UPSTREAM_REPO}" "./TEMPREPO" &&\
+                #cd "./TEMPREPO" && git fetch --tags --prune && break
+                if [[ "${#FETCH_DEPTH}" -eq 0 ]]; then
+                   echo -e "\n Cloning... (Blob=none|Depth=all) [${i}/20]"
+                   git clone --filter="blob:none" --verbose "${UPSTREAM_REPO}" "./TEMPREPO" && break
+                elif [[ -n "${FETCH_DEPTH+x}" ]]; then
+                   echo -e "\n Cloning... (Blob=none|Depth=${FETCH_DEPTH}) [${i}/20]"
+                   git clone --filter="blob:none" --depth="${FETCH_DEPTH}" --verbose "${UPSTREAM_REPO}" "./TEMPREPO" && break
+                fi
+              else
+                git clone --depth="${FETCH_DEPTH}" --verbose "${UPSTREAM_REPO}" "./TEMPREPO" && break
+                if [[ "${#FETCH_DEPTH}" -eq 0 ]]; then
+                   echo -e "\n Cloning... (Blob=true|Depth=all) [${i}/20]"
+                   git clone --verbose "${UPSTREAM_REPO}" "./TEMPREPO" && break
+                elif [[ -n "${FETCH_DEPTH+x}" ]]; then
+                   echo -e "\n Cloning... (Blob=true|Depth=${FETCH_DEPTH}) [${i}/20]"
+                   git clone --depth="${FETCH_DEPTH}" --verbose "${UPSTREAM_REPO}" "./TEMPREPO" && break
+                fi
+              fi
             done
            #Restore 
+            pushd "${WORK_DIR}" &>/dev/null
             for i in {1..200}; do
-              echo -e "\n Restoring... [${i}/200]" && git --git-dir="./TEMPREPO/.git" restore --source="HEAD" ":/" && break
+              echo -e "\n Restoring... [${i}/200]" && git --git-dir="${WORK_DIR}/TEMPREPO/.git" restore --source="HEAD" ":/" && break
             done
            #Tags
-            git --git-dir="./TEMPREPO/.git" fetch --tags
+            for i in {1..20}; do
+              echo -e "\n Fetching Tags... [${i}/20]" && git --git-dir="${WORK_DIR}/TEMPREPO/.git" fetch --tags && break
+            done
            #Commits
-            LATEST_COMMIT="$(git --git-dir="./TEMPREPO/.git" rev-parse 'HEAD' | tr -d '[:space:]')"
-            LATEST_COMMI_M="$(git --git-dir="./TEMPREPO/.git" --no-pager log -1 --pretty="%B" | sed -e '/^[[:space:]]*$/d;1q')"
-            PREV_COMMIT="$(cat "${GITHUB_WORKSPACE}/main/.github/LATEST.txt" 2>/dev/null | tr -d '[:space:]')"
+            pushd "${WORK_DIR}" &>/dev/null
+            LATEST_COMMIT="$(git --git-dir="${WORK_DIR}/TEMPREPO/.git" rev-parse 'HEAD' | tr -d '[:space:]')"
+            LATEST_COMMI_M="$(git --git-dir="${WORK_DIR}/TEMPREPO/.git" --no-pager log -1 --pretty="%B" | sed -e '/^[[:space:]]*$/d;1q')"
+            PREV_COMMIT="$(cat "${GITHUB_WORKSPACE}/main/.github/LATEST_COMMIT.txt" 2>/dev/null | tr -d '[:space:]')"
             export LATEST_COMMIT LATEST_COMMI_M PREV_COMMIT
             echo "LATEST_COMMI=${LATEST_COMMI}" >> "${GITHUB_ENV}"
             echo "LATEST_COMMI_M=${LATEST_COMMI_M}" >> "${GITHUB_ENV}"
             echo "PREV_COMMIT=${PREV_COMMIT}" >> "${GITHUB_ENV}"
-           #Sanity 
+           #Sanity
            if [[ "$(echo "${LATEST_COMMIT}" | tr -d '[:space:]' | wc -c)" -eq 40 ]]; then
-             git --git-dir="./TEMPREPO/.git" --no-pager log -1 --pretty="%B"
+             git --git-dir="${WORK_DIR}/TEMPREPO/.git" --no-pager log -1 --pretty="%B"
              if [ "${LATEST_COMMIT}" != "${PREV_COMMIT}" ]; then
                #Sync Repo
-                echo "${LATEST_COMMIT}" > "${GITHUB_WORKSPACE}/main/.github/LATEST.txt"
-                sed '/^$/d' -i "${GITHUB_WORKSPACE}/main/.github/LATEST.txt"
-                rm -rfv "./TEMPREPO/.git/" "./.githooks/" "./.github/" 2>/dev/null
+                echo "${LATEST_COMMIT}" | tr -d '[:space:]' > "${GITHUB_WORKSPACE}/main/.github/LATEST_COMMIT.txt"
+                echo "${LATEST_COMMIT_M}" > "${GITHUB_WORKSPACE}/main/.github/LATEST_COMMIT_M.txt"
+                git --git-dir="${WORK_DIR}/TEMPREPO/.git" for-each-ref --format '%(refname:short)==>%(objectname)' "refs/tags" | tee "${GITHUB_WORKSPACE}/main/.github/TAGS.txt"
+                sed '/^$/d' -i "${GITHUB_WORKSPACE}/main/.github/LATEST_COMMIT.txt"
+                rm -rfv "${WORK_DIR}/TEMPREPO/.git/" "./.githooks/" "./.github/" 2>/dev/null
                 rsync -achLv --remove-source-files --exclude="./.git/**" --exclude="./.github/**" "./" "${GITHUB_WORKSPACE}/main/"
              fi
+             #pushd "${WORK_DIR}/TEMPREPO/" &>/dev/null &&\
+             #git remote add target "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git"
+             #git push --force --prune target "refs/heads/*:refs/heads/*" "refs/tags/*:refs/tags/*"
            else
               echo -e "\n[✗] FATAL: ${UPSTREAM_REPO} was NOT Cloned Successfully\n"
               echo "CONTINUE_GHRUN=FALSE" >> "${GITHUB_ENV}"
@@ -147,4 +204,5 @@ jobs:
           #commit_message: "‎‎‏‏‎ ‎"
           commit_message: "${{ env.LATEST_COMMI_M }}"
           #push_options: '--force'
+          #push_options: '--mirror'
         continue-on-error: true
