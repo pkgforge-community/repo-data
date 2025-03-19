@@ -3,7 +3,7 @@ name: ⌚ TIME
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 */24 * * *" #Every 24 hrs 
+    - cron: "0 0 1 * *" #Once a month
 #------------------------------------------------------------------------------------#
 jobs:
   Initialize:
