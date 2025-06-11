@@ -237,7 +237,7 @@ jobs:
           echo "UTC_TIME=${UTC_TIME}" >> "${GITHUB_ENV}"
         continue-on-error: true
 
-      - uses: stefanzweifel/git-auto-commit-action@v5
+      - uses: stefanzweifel/git-auto-commit-action@v6
         if: env.CONTINUE_GHRUN != 'FALSE'
         with:
           repository: ./main
