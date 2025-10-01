@@ -99,7 +99,7 @@ jobs:
 
       - name: Cloning Current Repo
         if: env.CONTINUE_GHRUN != 'FALSE'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: main
           fetch-depth: "1"
